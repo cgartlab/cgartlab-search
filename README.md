@@ -53,3 +53,9 @@ Direct invocation: `node scripts/search.mjs <backends> "<query>" --limit 5`.
 - brave/exa wired (curl) — unreachable from DSH's GFW-like egress.
 - tencent endpoint pending (official zip blocked by binary-download sandbox);
   zhihu pending (public API 403 anti-bot) — bing site:zhihu.com fallback documented.
+## 发布与版本
+
+- 当前版本 **0.1.0**（`0.x` 表示尚未稳定：指令、文件约定与后端清单都可能变更）。
+- **版本源**：`SKILL.md` frontmatter 的 `metadata.version`（唯一权威）。
+- 变更记录见 `CHANGELOG.md`；发布流程与三道闸见 `docs/RELEASING.md`。
+- tag 命名 `v<version>`，与 `metadata.version` 逐字一致（如 `v0.1.0`）。
