@@ -1,7 +1,12 @@
 ---
 name: cgartlab-search
 description: Unified multi-backend internet search. Backends: Brave/Exa (web & deep research), Context7 (library/framework/API docs), plus key-less web_fetch backends — Bing RSS (general web search), 腾讯新闻热榜 and 虎扑足球 (news/体育/足球), Stack Overflow, GitHub, Hacker News (developer sources), and pending Tencent News/Zhihu (Chinese news & knowledge). Use whenever the user needs information from the internet — searching the web, researching a topic, looking up docs, finding news or current events (including 足球比赛新闻), investigating anything — in Chinese or English, even when they don't explicitly say "search". Activate on 查一下/搜一下/调研/全面了解/最新动态/新闻/足球赛况/知乎上怎么看/look up/research/how do I use X/what's new. Do not activate for purely local tasks (reading/editing local files, running local commands) unless external sources are needed.
+license: CC-BY-NC-SA-4.0
 compatibility: HTTP call capability — a shell with curl, or the harness native WebFetch/web_fetch tool (GET-only; all key-less backends work through it).
+metadata:
+  version: "0.1.0"
+  date: "2026-10-01"
+  reference: "https://github.com/cgartlab/cgartlab-search"
 ---
 
 # cgartlab-search — unified search
