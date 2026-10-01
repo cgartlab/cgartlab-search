@@ -1,0 +1,17 @@
+# Secrets — never commit real keys
+secrets.json
+**/secrets.json
+
+# Node (only if helper scripts ever install deps)
+node_modules/
+package-lock.json
+package-lock.json.*
+
+# skill-creator / eval workspace
+cgartlab-search-workspace/
+*-workspace/
+
+# temp & OS
+*.log
+.DS_Store
+Thumbs.db
