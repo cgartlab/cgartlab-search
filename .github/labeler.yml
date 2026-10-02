@@ -1,0 +1,35 @@
+🔍 area:skill:
+  - changed-files:
+      - any-glob-to-any-file:
+          - SKILL.md
+
+📦 area:backends:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'references/**/*'
+
+🛠 area:scripts:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'scripts/**/*'
+
+🧪 area:evals:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'evals/**/*'
+
+📝 type:docs:
+  - changed-files:
+      - any-glob-to-any-file:
+          - README.md
+          - CHANGELOG.md
+          - 'docs/**/*'
+          - '.github/ISSUE_TEMPLATE/**/*'
+
+⚙️ type:infra:
+  - changed-files:
+      - any-glob-to-any-file:
+          - '.github/**/*'
+          - .gitignore
+          - .gitattributes
+          - secrets.example.json
