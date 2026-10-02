@@ -50,7 +50,7 @@ jobs:
           import re, sys
           ver = sys.argv[1]
           text = open('CHANGELOG.md', encoding='utf-8').read()
-          m = re.search(r'^## \[' + re.escape(ver) + r'\][^\n]*\n(.*?)(?=^## \[)', text, re.M | re.S)
+          m = re.search(r'^## \[' + re.escape(ver) + r'\][^\n]*\n(.*?)(?=^## \[|\Z)', text, re.M | re.S)
           if not m:
               sys.exit('CHANGELOG 没有 [' + ver + '] 小节，拒绝生成空 Release')
           print('## cgartlab-search ' + ver)
