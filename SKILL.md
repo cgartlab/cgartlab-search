@@ -5,7 +5,7 @@ license: CC-BY-NC-SA-4.0
 compatibility: HTTP call capability — a shell with curl, or the harness native WebFetch/web_fetch tool (GET-only; all key-less backends work through it).
 metadata:
   version: "0.1.0"
-  date: "2026-10-01"
+  date: "2026-10-02"
   reference: "https://github.com/cgartlab/cgartlab-search"
 ---
 

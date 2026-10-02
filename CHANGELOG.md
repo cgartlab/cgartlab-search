@@ -6,16 +6,7 @@
 
 ## [Unreleased]
 
-### Fixed
-- **SKILL.md frontmatter 的 `description` 是非法 YAML**（值里 `Backends: Brave/Exa` 的 ASCII
-  冒号+空格让纯标量被解析成嵌套映射）：DSH 自带的 `yaml` 解析器与 `js-yaml` 双双报错，
-  而 DSH 的 skill-filesystem 对解析失败的 skill 直接忽略（`parseSkillFile` 的 warn 分支）——
-  skill 可能因此不被加载。对照组 `attention`/`quill` 的 frontmatter 两解析器均通过。
-  现改为单引号标量（值内撇号双写），解析后内容与修复前逐字一致（815 字符）。
-
-- **`secrets.json` 解析路径错误**（`scripts/search.mjs` 与 `scripts/search.sh`）：文件实际位于技能根目录（`SKILL.md` 旁，与 `references/backends.md` 的说明一致），但两个脚本都在 `scripts/` 子目录下查找，导致 `brave` / `exa` / `context7` / `tencent` / `zhihu` 等需密钥的后端永远返回 `missing key`（异常被静默吞掉，退化为仅环境变量模式）。现改为按 `scripts/secrets.json` → `../secrets.json` 顺序探测，两个位置均可，环境变量优先级不变。免密钥后端不受影响。
-
-## [0.1.0] - 2026-10-01
+## [0.1.0] - 2026-10-02
 
 首次发布（此前未对外发布过任何版本，本次涵盖自内部初版以来的全部工作）。
 
@@ -34,7 +25,16 @@
 - `SKILL.md` frontmatter 增加 `license` 与 `metadata`（`version` / `date` / `reference`）——Agent Skill 的版本源就在此处。
 - `README.md` 增加「发布与版本」章节，指向版本源与变更记录。
 
-### 已知限制
+### Fixed
+- **SKILL.md frontmatter 的 `description` 是非法 YAML**（值里 `Backends: Brave/Exa` 的 ASCII
+  冒号+空格让纯标量被解析成嵌套映射）：DSH 自带的 `yaml` 解析器与 `js-yaml` 双双报错，
+  而 DSH 的 skill-filesystem 对解析失败的 skill 直接忽略（`parseSkillFile` 的 warn 分支）——
+  skill 可能因此不被加载。对照组 `attention`/`quill` 的 frontmatter 两解析器均通过。
+  现改为单引号标量（值内撇号双写），解析后内容与修复前逐字一致（815 字符）。
+
+- **`secrets.json` 解析路径错误**（`scripts/search.mjs` 与 `scripts/search.sh`）：文件实际位于技能根目录（`SKILL.md` 旁，与 `references/backends.md` 的说明一致），但两个脚本都在 `scripts/` 子目录下查找，导致 `brave` / `exa` / `context7` / `tencent` / `zhihu` 等需密钥的后端永远返回 `missing key`（异常被静默吞掉，退化为仅环境变量模式）。现改为按 `scripts/secrets.json` → `../secrets.json` 顺序探测，两个位置均可，环境变量优先级不变。免密钥后端不受影响。
+
+**已知限制**（详见 `references/backends.md` 的可达性地图；不单列非标准章节）
 
 - `brave` / `exa` 需密钥，且在当前受限出口环境不可达，仅在带 shell 网络的 harness 可用。
 - `tencent`（官方腾讯新闻 API）与 `zhihu` 端点尚未配置，返回 `not configured` 并走降级路径。
