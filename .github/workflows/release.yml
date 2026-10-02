@@ -1,0 +1,72 @@
+name: Release
+
+# tag 驱动的自动发布：tag 版本必须与 SKILL.md 的 metadata.version 逐字一致，
+# 过完门禁后从 CHANGELOG 抽出本版小节作为 Release 说明（抽不到就失败，不编造）。
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: 门禁 + 创建 Release
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: tag 必须等于 SKILL.md 的 metadata.version
+        run: |
+          VER=$(python3 -c "import re;m=re.search(r'version:\s*\"(\d+\.\d+\.\d+)\"',open('SKILL.md',encoding='utf-8').read());print(m.group(1) if m else '')")
+          TAG="${GITHUB_REF_NAME#v}"
+          if [ -z "$VER" ]; then echo "::error::SKILL.md 没有 metadata.version"; exit 1; fi
+          if [ "$TAG" != "$VER" ]; then echo "::error::tag v$TAG 与 SKILL.md $VER 不一致"; exit 1; fi
+          echo "版本一致：v$VER"
+
+      - name: 门禁（JSON / 脚本语法 / 密钥不入库）
+        run: |
+          python3 -m json.tool evals/evals.json > /dev/null
+          python3 -m json.tool secrets.example.json > /dev/null
+          node --check scripts/search.mjs
+          bash -n scripts/search.sh
+          if git ls-files --error-unmatch secrets.json 2>/dev/null; then
+            echo "::error::secrets.json 被 git 跟踪了"; exit 1
+          fi
+
+      - name: 从 CHANGELOG 抽取本版说明（抽不到即失败）
+        run: |
+          VER="${GITHUB_REF_NAME#v}"
+          python3 - "$VER" > notes.md <<'PYEOF'
+          import re, sys
+          ver = sys.argv[1]
+          text = open('CHANGELOG.md', encoding='utf-8').read()
+          m = re.search(r'^## \[' + re.escape(ver) + r'\][^\n]*\n(.*?)(?=^## \[)', text, re.M | re.S)
+          if not m:
+              sys.exit('CHANGELOG 没有 [' + ver + '] 小节，拒绝生成空 Release')
+          print('## cgartlab-search ' + ver)
+          print()
+          print('完整变更与版本策略见仓库 CHANGELOG.md。')
+          print()
+          print(m.group(1).strip())
+          PYEOF
+          echo "--- notes.md ---"; cat notes.md
+
+      - name: 创建 GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            --repo "$GITHUB_REPOSITORY" \
+            --verify-tag \
+            --title "cgartlab-search $GITHUB_REF_NAME" \
+            --notes-file notes.md
