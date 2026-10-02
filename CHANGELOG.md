@@ -7,6 +7,11 @@
 ## [Unreleased]
 
 ### Fixed
+- **SKILL.md frontmatter 的 `description` 是非法 YAML**（值里 `Backends: Brave/Exa` 的 ASCII
+  冒号+空格让纯标量被解析成嵌套映射）：DSH 自带的 `yaml` 解析器与 `js-yaml` 双双报错，
+  而 DSH 的 skill-filesystem 对解析失败的 skill 直接忽略（`parseSkillFile` 的 warn 分支）——
+  skill 可能因此不被加载。对照组 `attention`/`quill` 的 frontmatter 两解析器均通过。
+  现改为单引号标量（值内撇号双写），解析后内容与修复前逐字一致（815 字符）。
 
 - **`secrets.json` 解析路径错误**（`scripts/search.mjs` 与 `scripts/search.sh`）：文件实际位于技能根目录（`SKILL.md` 旁，与 `references/backends.md` 的说明一致），但两个脚本都在 `scripts/` 子目录下查找，导致 `brave` / `exa` / `context7` / `tencent` / `zhihu` 等需密钥的后端永远返回 `missing key`（异常被静默吞掉，退化为仅环境变量模式）。现改为按 `scripts/secrets.json` → `../secrets.json` 顺序探测，两个位置均可，环境变量优先级不变。免密钥后端不受影响。
 
