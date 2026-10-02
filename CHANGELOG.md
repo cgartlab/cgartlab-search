@@ -6,6 +6,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- **`secrets.json` 解析路径错误**（`scripts/search.mjs` 与 `scripts/search.sh`）：文件实际位于技能根目录（`SKILL.md` 旁，与 `references/backends.md` 的说明一致），但两个脚本都在 `scripts/` 子目录下查找，导致 `brave` / `exa` / `context7` / `tencent` / `zhihu` 等需密钥的后端永远返回 `missing key`（异常被静默吞掉，退化为仅环境变量模式）。现改为按 `scripts/secrets.json` → `../secrets.json` 顺序探测，两个位置均可，环境变量优先级不变。免密钥后端不受影响。
+
 ## [0.1.0] - 2026-10-01
 
 首次发布（此前未对外发布过任何版本，本次涵盖自内部初版以来的全部工作）。

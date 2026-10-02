@@ -8,7 +8,7 @@
 //   backends: comma list from brave,exa,context7,tencent,zhihu,bing,qqnews,hupu,so,github,hn
 //
 // Keyed backends read env vars BRAVE_SEARCH_API_KEY EXA_API_KEY CONTEXT7_API_KEY
-// TENCENT_NEWS_KEY ZHIHU_API_KEY (fallback: secrets.json next to this script).
+// TENCENT_NEWS_KEY ZHIHU_API_KEY (fallback: secrets.json next to SKILL.md).
 // Key-less backends (bing,context7,qqnews,hupu,so,github,hn) need nothing.
 // Output: one line of normalized JSON on stdout. Exit 0 if any backend returned results.
 import { readFileSync } from 'node:fs';
@@ -29,10 +29,15 @@ const ENV_KEYS = { brave: 'BRAVE_SEARCH_API_KEY', exa: 'EXA_API_KEY', context7: 
 const FILE_KEYS = { brave: 'brave_api_key', exa: 'exa_api_key', context7: 'context7_api_key', tencent: 'tencent_news_key', zhihu: 'zhihu_api_key' };
 const secrets = {};
 for (const b of Object.keys(ENV_KEYS)) { const v = process.env[ENV_KEYS[b]]; if (v) secrets[b] = v; }
-try {
-  const f = JSON.parse(readFileSync(join(here, 'secrets.json'), 'utf8'));
-  for (const b of Object.keys(FILE_KEYS)) if (!secrets[b] && f[FILE_KEYS[b]]) secrets[b] = f[FILE_KEYS[b]];
-} catch { /* env-only mode */ }
+// secrets.json lives next to SKILL.md (skill root); a copy beside this script still works.
+const SECRETS_CANDIDATES = [join(here, 'secrets.json'), join(here, '..', 'secrets.json')];
+for (const p of SECRETS_CANDIDATES) {
+  try {
+    const f = JSON.parse(readFileSync(p, 'utf8'));
+    for (const b of Object.keys(FILE_KEYS)) if (!secrets[b] && f[FILE_KEYS[b]]) secrets[b] = f[FILE_KEYS[b]];
+    break;
+  } catch { /* try next candidate; env-only mode when none parse */ }
+}
 const enc = s => encodeURIComponent(s);
 const unent = s => s.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"')
   .replace(/&#39;/g, "'").replace(/&#x27;/g, "'").replace(/&#x2F;/g, '/').replace(/&amp;/g, '&');

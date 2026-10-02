@@ -4,20 +4,26 @@
 #
 # Usage: ./search.sh <backend> "<query>" [limit]
 #   backend: brave|exa|context7|tencent|zhihu|bing|qqnews|hupu|so|github|hn
-# Keys: env vars, or secrets.json next to this script (key-less backends need none).
+# Keys: env vars, or secrets.json next to SKILL.md (key-less backends need none).
 # Output: one line of normalized JSON on stdout.
 set -euo pipefail
 b="${1:-}"; q="${2:-}"; n="${3:-5}"
 if [ -z "$b" ] || [ -z "$q" ]; then echo 'usage: search.sh <backend> "<query>" [limit]' >&2; exit 2; fi
 here="$(cd "$(dirname "$0")" && pwd)"
 
-if [ -f "$here/secrets.json" ]; then
+# secrets.json lives next to SKILL.md (skill root); a copy beside this script still works.
+secrets_file=""
+for cand in "$here/secrets.json" "$here/../secrets.json"; do
+  [ -f "$cand" ] && secrets_file="$cand" && break
+done
+
+if [ -n "$secrets_file" ]; then
   while IFS='=' read -r ek val; do
     case "$ek" in
       BRAVE_SEARCH_API_KEY|EXA_API_KEY|CONTEXT7_API_KEY|TENCENT_NEWS_KEY|ZHIHU_API_KEY)
         [ -z "${!ek:-}" ] && export "$ek=$val" ;;
     esac
-  done < <(python3 - "$here/secrets.json" <<'PYEOF'
+  done < <(python3 - "$secrets_file" <<'PYEOF'
 import json,sys,shlex
 d=json.load(open(sys.argv[1]))
 m={'brave_api_key':'BRAVE_SEARCH_API_KEY','exa_api_key':'EXA_API_KEY','context7_api_key':'CONTEXT7_API_KEY','tencent_news_key':'TENCENT_NEWS_KEY','zhihu_api_key':'ZHIHU_API_KEY'}
