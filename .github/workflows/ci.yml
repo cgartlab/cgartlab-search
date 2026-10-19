@@ -1,9 +1,10 @@
 name: CI
 
 # 轻量门禁：脚本语法、JSON 合法、frontmatter 版本存在、密钥不入库
+# 触发收窄到 main：功能分支改动由 PR（base=main）承载校验，避免中间 push 重复烧额度。
 on:
   push:
-    branches: ['**']
+    branches: [main]
   pull_request:
     branches: [main]
   workflow_dispatch:
