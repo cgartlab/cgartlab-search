@@ -29,7 +29,7 @@
 1. 确认 `[Unreleased]` 完整且可溯源。
 2. 定版本号（拿不准就问维护者；不编造、不擅自跳大版本）。
 3. 一致 bump：`SKILL.md` → `metadata.version` / `metadata.date`；`CHANGELOG.md` 把 `[Unreleased]` 改名为 `## [x.y.z] - <真实日期>`，并在其上方新开一个空的 `## [Unreleased]`。
-4. 跑闸门（本地预检 + `evals/evals.json` 用例）。
+4. 跑闸门（`bash scripts/gate.sh --smoke`，它是 `.github/workflows/ci.yml` 的等价实现 + 逐后端实跑；另跑 `evals/evals.json` 用例）。
 5. 提交：`chore(release): x.y.z`。
 6. 打本地 tag：`git tag -a v<x.y.z> -m "<摘要>"`；推送 tag 与开 PR 需单独确认。
 

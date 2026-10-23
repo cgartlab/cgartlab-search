@@ -12,6 +12,8 @@
 // Key-less backends (bing,context7,qqnews,hupu,so,github,hn) need nothing.
 // Output: one line of normalized JSON on stdout. Exit 0 if any backend returned results.
 import { readFileSync } from 'node:fs';
+import { execFile } from 'node:child_process';
+import { homedir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -174,12 +176,103 @@ async function exa() {
 }
 
 async function tencent() {
-  // TODO: paste endpoint extracted from the official tencent-news skill zip (see references/backends.md).
-  return { error: 'not configured: paste endpoint from tencent-news skill (see references/backends.md)' };
+  // tencent-news-cli is a Go binary that prints human-readable text, not JSON, and
+  // has no --json/--format flag (verified v1.0.17). Its key lives in the CLI's own
+  // config (HKCU\Environment on Windows), NOT here — so we never read a secret for
+  // it and instead detect an auth failure from the CLI's own message.
+  const n = Math.max(1, Math.min(50, limit));
+  // `hot` takes no query, so it is only used when there is no keyword. `--news` does
+  // NOT force the hot list: every tencent result is already type=news, and ignoring a
+  // real keyword would return unrelated headlines.
+  const args = query ? ['search', query, '--limit', String(n)]
+    : ['hot', '--limit', String(n)];
+  const run = (cmd, argv) => new Promise((resolve) => {
+    execFile(cmd, argv, { timeout: 30000, maxBuffer: 4 * 1024 * 1024, windowsHide: true },
+      (err, stdout, stderr) => resolve({ err, stdout: stdout || '', stderr: stderr || '' }));
+  });
+  // Resolution order: explicit override → PATH → the installer's own directory.
+  // The installer drops the binary in ~/.tencent-news-cli/bin/ without touching PATH,
+  // so a PATH-only lookup reports "not found" on a perfectly working install.
+  const exeName = process.platform === 'win32' ? 'tencent-news-cli.exe' : 'tencent-news-cli';
+  const candidates = [
+    process.env.TENCENT_NEWS_CLI_PATH,
+    'tencent-news-cli',
+    join(homedir(), '.tencent-news-cli', 'bin', exeName),
+  ].filter(Boolean);
+  let err, stdout = '', stderr = '', used = candidates[0];
+  for (const cmd of candidates) {
+    ({ err, stdout, stderr } = await run(cmd, args));
+    used = cmd;
+    if (err && (err.code === 'ENOENT' || err.code === 'EACCES')) continue; // try next candidate
+    break;
+  }
+  if (err && (err.code === 'ENOENT' || err.code === 'EACCES')) {
+    return { error: `tencent-news-cli not found (tried: ${candidates.join(', ')}) — install from https://mat1.gtimg.com/qqcdn/qqnews/cli/hub/tencent-news/setup.ps1` };
+  }
+  const text = `${stdout}\n${stderr}`;
+  if (/未设置 API Key|not set/i.test(text)) {
+    return { error: `API key not configured — run: ${used} apikey-set <KEY>` };
+  }
+  if (/API Key 无效|invalid api key|unauthorized|401|403/i.test(text)) {
+    return { error: 'API key invalid or unauthorized' };
+  }
+  if (err && !stdout.trim()) return { error: `CLI failed: ${String(err.message || err).slice(0, 120)}` };
+  if (/未找到与/.test(stdout)) return { results: [] };
+
+  // Parse blocks: "N. 标题：...\n   摘要: ...\n   来源: ...\n   发布时间: ...\n   链接: ..."
+  const out = [];
+  const blocks = stdout.split(/\n(?=\d+\.\s*标题：)/);
+  for (const b of blocks) {
+    const grab = (label) => {
+      const m = b.match(new RegExp(`^\\s*${label}[:：]\\s*(.+)$`, 'm'));
+      return m ? m[1].trim() : '';
+    };
+    // The title line is prefixed with "N. " ("1. 标题：..."), unlike the other fields.
+    const titleMatch = b.match(/^\s*\d+\.\s*标题[:：]\s*(.+)$/m);
+    const title = titleMatch ? titleMatch[1].trim() : '';
+    const url = grab('链接');
+    if (!title || !url) continue;
+    out.push({
+      backend: 'tencent',
+      type: 'news',
+      title,
+      url,
+      snippet: grab('摘要').replace(/\.\.\.$/, ''),
+      published: grab('发布时间') || null,
+      source: grab('来源') || null,
+    });
+    if (out.length >= n) break;
+  }
+  return { results: out };
 }
 async function zhihu() {
-  // TODO: paste endpoint provided by user (see references/backends.md). Public API 403s (anti-bot).
-  return { error: 'not configured: paste endpoint (see references/backends.md); use bing site:zhihu.com meanwhile' };
+  if (!secrets.zhihu) return { error: 'missing key' };
+  // Zhihu OpenAPI global search — searches the whole public web, not just zhihu.com.
+  // Auth is Bearer + a request timestamp; params are PascalCase (Query/Count/Filter/SearchDB).
+  // Count is clamped to 1-20 server-side; we clamp locally too so --limit stays honest.
+  const n = Math.max(1, Math.min(20, limit));
+  const params = new URLSearchParams({ Query: query, Count: String(n) });
+  if (wantNews) params.set('SearchDB', 'realtime');
+  const r = await fetch(`https://developer.zhihu.com/api/v1/content/global_search?${params}`, {
+    headers: {
+      Authorization: `Bearer ${secrets.zhihu}`,
+      'X-Request-Timestamp': String(Math.floor(Date.now() / 1000)),
+    },
+  });
+  if (!r.ok) return { error: `HTTP ${r.status}` };
+  const j = await r.json();
+  if (j.Code !== 0) return { error: `API Code ${j.Code}: ${j.Message || 'unknown'}` };
+  const items = j.Data?.Items || [];
+  return { results: items.map(x => ({
+    backend: 'zhihu',
+    type: wantNews ? 'news' : 'web',
+    title: x.Title || '',
+    url: x.Url || '',
+    snippet: (x.ContentText || '').slice(0, 300),
+    published: x.EditTime ? new Date(x.EditTime * 1000).toISOString() : null,
+    author: x.AuthorName || null,
+    score: x.RankingScore ?? null,
+  })) };
 }
 
 const ADAPTERS = { bing, qqnews, hupu, so, github, hn, context7, brave, exa, tencent, zhihu };

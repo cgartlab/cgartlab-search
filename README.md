@@ -18,14 +18,20 @@ Codex, opencode, ...), including restricted-egress environments via web_fetch.
 | hn (Algolia) | tech community signal | curl + web_fetch | none |
 | brave | general web / news (quality) | curl only (header auth) | BRAVE_SEARCH_API_KEY |
 | exa | deep research / semantic | curl only (POST + auth) | EXA_API_KEY |
-| tencent (official API) | Chinese news (endpoint pending) | curl | TENCENT_NEWS_KEY |
-| zhihu | Chinese knowledge (pending) | endpoint pending | ZHIHU_API_KEY |
+| tencent (official CLI) | 中文新闻搜索 + 热点榜 | local `tencent-news-cli` binary | owned by the CLI (`apikey-set`) |
+| zhihu (official OpenAPI) | 中文全网 / 知乎讨论 | curl + web_fetch | ZHIHU_API_KEY |
 
 ## Requirements
 
 - **Normal harness**: a shell with `curl` (macOS/Linux/Windows 10+) — all backends.
 - **DSH / restricted egress**: the harness's `web_fetch` tool — all key-less backends.
   See `references/backends.md` for the verified host-reachability map.
+- **`scripts/search.mjs`**: Node 18+ (zero dependencies, uses global `fetch`).
+- **`scripts/search.sh`**: a working `python3` **or** `python` — the script probes both
+  (plus `$PYTHON`) and verifies real output, because on Windows `python3` can be a
+  Microsoft Store alias stub that exits 0 while printing nothing.
+- **`tencent` backend**: the local `tencent-news-cli` binary (see `references/backends.md`).
+  Nothing else needs any install.
 
 ## Install
 
@@ -47,15 +53,22 @@ Ask in natural language — "查一下 ...", "搜搜最新足球比赛新闻", "
 "React 的 use() 怎么用", "全面调研 ...". The skill triggers and routes automatically.
 Direct invocation: `node scripts/search.mjs <backends> "<query>" --limit 5`.
 
-## Status (verified 2026-10-01)
+Before committing, run the local gate — it is the same checks as `.github/workflows/ci.yml`,
+so it works even where Actions is unavailable:
+`bash scripts/gate.sh` (add `--smoke` to actually hit every backend once).
 
-- 7 key-less backends live-verified in DSH via web_fetch.
-- brave/exa wired (curl) — unreachable from DSH's GFW-like egress.
-- tencent endpoint pending (official zip blocked by binary-download sandbox);
-  zhihu pending (public API 403 anti-bot) — bing site:zhihu.com fallback documented.
+## Status (verified 2026-10-23)
+
+- **9 of 11 backends live**: bing, context7, qqnews, hupu, so, github, hn (key-less) plus
+  zhihu (official OpenAPI) and tencent (official CLI) — all smoke-tested end to end.
+- **brave / exa**: wired via curl but need keys (none configured here) and are unreachable
+  from DSH's GFW-like egress.
+- Both entry points (`search.mjs`, `search.sh`) were verified per-backend on Windows;
+  `search.sh` also needed a Python-interpreter probe and stdin-based `secrets.json`
+  loading (native Python cannot read MSYS-style paths).
 ## 发布与版本
 
-- 当前版本 **0.1.0**（`0.x` 表示尚未稳定：指令、文件约定与后端清单都可能变更）。
+- 当前版本 **0.1.1**（`0.x` 表示尚未稳定：指令、文件约定与后端清单都可能变更）。
 - **版本源**：`SKILL.md` frontmatter 的 `metadata.version`（唯一权威）。
 - 变更记录见 `CHANGELOG.md`；发布流程与三道闸见 `docs/RELEASING.md`。
 - tag 命名 `v<version>`，与 `metadata.version` 逐字一致（如 `v0.1.0`）。

@@ -17,9 +17,9 @@
     },
     {
       "id": 3,
-      "name": "zhihu-degradation",
+      "name": "zhihu-live-then-degrade",
       "prompt": "知乎上大家怎么看 Rust 在后端的落地？",
-      "expected_output": "zhihu if configured; otherwise bing site:zhihu.com fallback (curl harness: exa+brave), explicitly noting the substitution.",
+      "expected_output": "zhihu is a live backend (official OpenAPI global search, whole-public-web index incl. 知乎 threads) — return its results with links. Only when ZHIHU_API_KEY is absent: bing site:zhihu.com fallback, explicitly noting the substitution.",
       "files": []
     },
     {
@@ -54,7 +54,14 @@
       "id": 8,
       "name": "zhihu-fallback-honesty",
       "prompt": "知乎上大家怎么看产品经理转行做AI？",
-      "expected_output": "zhihu if configured; else bing site:zhihu.com best-effort. If results collapse to generic 'what is 产品' definitions, report the fallback missed and degrade — never cite off-topic pages to look complete.",
+      "expected_output": "zhihu (live OpenAPI) returns real 知乎/web items with links. If the key is missing, bing site:zhihu.com best-effort; if those collapse to generic 'what is 产品' definitions, report the miss and degrade — never cite off-topic pages to look complete.",
+      "files": []
+    },
+    {
+      "id": 9,
+      "name": "tencent-news-search-and-hot",
+      "prompt": "帮我搜一下最近的 AI 芯片新闻，再看看今天的热点榜",
+      "expected_output": "tencent with a keyword → `search` results (标题/摘要/来源/发布时间/链接 parsed into normalized items, view.inews.qq.com links); empty keyword → `hot` 热点榜. If the CLI is missing or its key is unset, report that in `errors` and fall back to qqnews/bing instead of fabricating headlines.",
       "files": []
     }
   ]

@@ -30,6 +30,15 @@
 ### 失败后端不编造
 - 失误：某后端不可达时编造结果替代 → 规则：不可达的后端在回复中加一行说明（如 "Brave/Exa 在本环境不可达，已用 bing 替代"），绝不编造（见 SKILL.md「Step 3」）
 
+### python3 可能是空存根
+- 失误：`scripts/search.sh` 直接用 `python3`，本机该命令是 Microsoft Store 别名存根，exit 0 且不输出，全部后端静默返回空 JSON → 规则：脚本必须探测解释器并验证真实输出（`"$cand" -c 'print(1)'` 等于 `1`），不能只看命令是否存在
+
+### 原生工具不读 MSYS 路径
+- 失误：把 `$(cd … && pwd)` 得到的 `/d/...` 路径当参数传给 Windows 原生 Python，抛 `FileNotFoundError` → 规则：给原生工具的数据一律走 stdin（或先 `cygpath -w`），不把 MSYS 路径用作参数
+
+### 安装器不改 PATH
+- 失误：`tencent` 适配器只解析裸命令名，而官方安装器把二进制放在 `~/.tencent-news-cli/bin/` 且不改 `PATH`，已装好的机器仍报 "not found" → 规则：外部 CLI 依赖按 `环境变量` → `PATH` → `安装器默认目录` 三级解析
+
 ## 路由与降级
 
 ### 知乎未配置时的降级

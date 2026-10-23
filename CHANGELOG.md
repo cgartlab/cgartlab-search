@@ -2,11 +2,33 @@
 
 本项目所有重要变更记录于此。格式参考 [Keep a Changelog](https://keepachangelog.com/)，版本号遵循 [语义化版本](https://semver.org/)。
 
-> 版本策略：技能尚不完善，当前版本 `0.1.0`；未发布变更记于 [Unreleased]，是否切版由维护者决定（见 `docs/RELEASING.md`）。
+> 版本策略：技能尚不完善，当前版本 `0.1.1`；未发布变更记于 [Unreleased]，是否切版由维护者决定（见 `docs/RELEASING.md`）。
 
 ## [Unreleased]
 
-> 暂无未发布变更。（空的 `[Unreleased]` 是 `docs/RELEASING.md` 发布流程的约定：每次发版后在其上方新开一个空章节，因此这里保留标题而不是删掉。）
+暂无未发布变更。（空的 `[Unreleased]` 是 `docs/RELEASING.md` 发布流程的约定：每次发版后在其上方新开一个空章节，因此这里保留标题而不是删掉。）
+
+## [0.1.1] - 2026-10-23
+
+### Added
+
+- **`zhihu` 后端从占位变为可用**（`scripts/search.mjs`）：接入知乎官方 OpenAPI **Global Search**（`GET https://developer.zhihu.com/api/v1/content/global_search`，Bearer + `X-Request-Timestamp`）。检索范围为**全网公开内容**而非仅 zhihu.com，对中文主题表现好。参数为 PascalCase（`Query` / `Count` / `Filter` / `SearchDB`），`Count` 服务端限制 1-20，适配器本地同样截断以保证 `--limit` 诚实；`--news` 映射为 `SearchDB=realtime`。`published` 取自 `EditTime`（**编辑时间**，不是发布时间），`score` 取自 `RankingScore`。
+- **`tencent` 后端从占位变为可用**（`scripts/search.mjs`）：接入腾讯新闻官方 **`tencent-news-cli`**（Go 二进制，非 HTTP API）。`search <关键词>` 走关键词搜索，`hot` 走热点榜（**仅当没有关键词时**使用；`--news` 不改变检索方式），`--limit` 本地截断到 1-50。因 CLI **没有 `--json` / `--format`**（实测 v1.0.17），适配器解析其文本输出；标题行带 `N. ` 序号前缀而其余字段为缩进，这是解析的关键差异点。
+- `references/backends.md` 为两个后端补齐完整规格：认证方式、参数表、返回字段、输出文本格式、失败分支，以及 Tencent 安装的**已知安装器 bug**（`setup.ps1` 经 `pwsh` 调用时 `checksums.txt` 被当作单个字符串，导致 `No matching checksum` 误报，需手动校验 SHA-256 安装）。
+
+### Changed
+
+- `SKILL.md`：`description` 去掉 “pending Tencent News/Zhihu”，路由表补 `tencent`（热点榜 / 中文新闻搜索）与 `zhihu`（中文全网）入口，Backend status 段改为 2026-10-20 实测结果。
+- **`tencent` 的密钥归属特殊**：key 由 `tencent-news-cli apikey-set` 持久化到 CLI 自身配置（Windows 为 `HKCU\Environment`），**不读 `secrets.json`**；`TENCENT_NEWS_KEY` / `tencent_news_key` 两个槽位保留但未使用，文档已注明。
+
+### Fixed
+
+- **`tencent` 二进制解析**：适配器原来只按裸命令名 `tencent-news-cli` 查找，而官方安装器把二进制放进 `~/.tencent-news-cli/bin/` 且**不修改 `PATH`**，已装好的机器上仍报 “not found”。现按 `TENCENT_NEWS_CLI_PATH` → `PATH` → 安装器默认目录 顺序解析，并在报错里列出已尝试的路径。
+- **`tencent "关键词" --news` 丢弃关键词**：原逻辑把 `--news` 映射到 `hot`（热点榜），带关键词查询会返回与查询无关的头条。现仅当关键词为空时走 `hot`；`--news` 不再改变检索方式（该后端结果本就全是 `type=news`）。`references/backends.md` 的映射表同步更正。
+- **`scripts/search.sh` 的 `tencent` / `zhihu` 仍是 “not configured” 占位**，与 `search.mjs` 不一致：按同一规格补齐实现（zhihu 走 `/content/global_search`，`Count` 本地截断 1-20；tencent 调官方 CLI，`--limit` 截断 1-50，含无关键词热点榜）。
+- **`search.sh` 在本机全后端静默返回空**：脚本一律调 `python3`，而 Windows 上该命令可能是 Microsoft Store 别名存根（exit 0、无输出）。现探测 `$PYTHON` → `python3` → `python` 并**验证真实输出**（`print(1)` 必须等于 `1`），无可用解释器时输出明确错误。
+- **`search.sh` 读不到 `secrets.json`**：路径以 MSYS 形式（`/d/...`）传给 Windows 原生 Python，触发 `FileNotFoundError`。改为经 **stdin** 传入 JSON；同时去掉 `shlex.quote`——它会把字面单引号塞进 `Authorization` 等请求头。
+- **`zhihu` / `so` 的时间戳弃用告警**：`datetime.utcfromtimestamp` 在 Python 3.14 已弃用并往 stderr 打 `DeprecationWarning`；改为 timezone-aware，输出与 `search.mjs` 一致的 `...Z` 形式。
 
 ## [0.1.0] - 2026-10-02
 

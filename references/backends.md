@@ -43,11 +43,32 @@ Load order: environment variables, then `secrets.json` next to SKILL.md.
 | BRAVE_SEARCH_API_KEY | brave_api_key |
 | EXA_API_KEY | exa_api_key |
 | CONTEXT7_API_KEY | context7_api_key |
-| TENCENT_NEWS_KEY | tencent_news_key |
 | ZHIHU_API_KEY | zhihu_api_key |
 
 Key-less backends (bing, context7, qqnews, hupu, so, github, hn) need NO secrets.
 Never hardcode keys into requests you log or into git. `secrets.json` is gitignored.
+
+> **`tencent` is the exception**: its key is owned by the `tencent-news-cli` binary
+> (`tencent-news-cli apikey-set`), not by `secrets.json`. The `TENCENT_NEWS_KEY` /
+> `tencent_news_key` slots are unused — set the key through the CLI instead.
+
+## Runtime prerequisites for the two scripts
+
+| Script | Needs | Notes |
+|---|---|---|
+| `scripts/search.mjs` | Node 18+ | zero dependencies; only `tencent` shells out |
+| `scripts/search.sh` | `curl` + a real Python | probes `$PYTHON` → `python3` → `python` |
+
+Two Windows gotchas this repo already handles — keep them when editing:
+
+- **`python3` may be a Store alias stub.** On Windows, `python3` can resolve to
+  `.../WindowsApps/python3` which exits 0 and prints nothing, so every parser silently
+  returns empty JSON. `search.sh` therefore *verifies real output*
+  (`"$cand" -c 'print(1)'` must equal `1`) instead of trusting the command name.
+  The same applies to the one-liner recipes below: if `python3` misbehaves, use `python`.
+- **Native tools cannot read MSYS-style paths.** Passing `/d/repo/secrets.json` to a
+  Windows Python raises `FileNotFoundError`; `search.sh` pipes the file through
+  **stdin** instead. Do not reintroduce `python3 - "$path"` there.
 
 ## Normalized output
 
@@ -243,22 +264,133 @@ Response: `{"results":[{title,url,score,publishedDate,text}]}`
 Normalize: `{"backend":"exa","type":"web","title","url","snippet":text[:300],"score","published":publishedDate}`
 In DSH: unreachable (POST + host) — degrade to bing + hn.
 
-## tencent — official Tencent News API  (endpoint pending)
+## tencent — 腾讯新闻 (official CLI)  (verified 2026-10-20)
 
-The official `tencent-news` skill (https://mat1.gtimg.com/qqcdn/qqnews/cli/hub/tencent-news.zip )
-wraps an API keyed by `tencent_news_key`. The zip could not be extracted from this sandbox
-(binary download blocked). To activate: open the zip in a browser, copy the request URL +
-headers + body from its SKILL.md/script into this section, then implement the adapter.
+Tencent's official **`tencent-news-cli`** — a Go binary, *not* an HTTP API. It prints
+human-readable text and has **no `--json` / `--format` flag** (verified v1.0.17), so the
+adapter parses its text output.
 
-Until then `tencent` returns `{"error":"not configured: paste endpoint from tencent-news skill"}`.
-News queries are covered meanwhile by **qqnews** (hot list) + **bing** (query news).
+Official skill package: https://mat1.gtimg.com/qqcdn/qqnews/cli/hub/tencent-news.zip
 
-## zhihu — Chinese knowledge/opinion  (endpoint pending / API blocked)
+### Install
 
-`zhihu_api_key` (40-hex) provided, but no endpoint doc yet, and `www.zhihu.com/api/v4/search_v3`
-answers HTTP 403 (anti-bot requires signed headers web_fetch cannot send).
+```powershell
+# Windows
+irm https://mat1.gtimg.com/qqcdn/qqnews/cli/hub/tencent-news/setup.ps1 | iex
+```
 
-Until configured: `zhihu` returns `{"error":"not configured"}`. DSH fallback for
-zhihu-intent queries: bing RSS with `site:zhihu.com` + compound query — best-effort only;
-gate citations on topical relevance and report honestly when it misses (see bing section).
-Other harnesses: exa + brave.
+```bash
+# macOS / Linux
+curl -fsSL https://mat1.gtimg.com/qqcdn/qqnews/cli/hub/tencent-news/setup.sh | sh
+```
+
+Installs to `~/.tencent-news-cli/bin/tencent-news-cli[.exe]`.
+
+> **Known installer bug (Windows, verified)**: `setup.ps1` fails with
+> `No matching checksum found for windows-amd64/tencent-news-cli.exe` because its
+> checksum loop sees the whole `checksums.txt` as **one string** (`$checksumContent.Count -eq 1`)
+> instead of 5 lines, so the per-line regex never matches. Manual install:
+> download `.../hub/windows-amd64/tencent-news-cli.exe`, compare against the SHA-256 in
+> `.../hub/checksums.txt`, then place it at `~/.tencent-news-cli/bin/tencent-news-cli.exe`.
+> Invoking `setup.ps1` via `pwsh` (not `powershell`) is what triggers this.
+
+### API key
+
+The key lives in the **CLI's own config**, never in this skill:
+
+```bash
+tencent-news-cli apikey-set <KEY>    # Windows: writes HKCU\Environment
+tencent-news-cli apikey-get
+```
+
+Because it is persisted (registry on Windows, shell RC on macOS/Linux), a terminal that was
+already open will not see it — set `TENCENT_NEWS_APIKEY` in the current process, or open a new
+one. The adapter does **not** read `secrets.json` for this backend.
+
+### Commands used
+
+| Intent | Command |
+|---|---|
+| keyword news search | `search <关键词> --limit N` |
+| trending / hot list | `hot --limit N` |
+
+Both accept only `--limit` (plus the global `--caller`). Adapter mapping:
+
+- non-empty query → `search <query>` — **always**; `--news` does *not* switch to the hot
+  list, because every tencent result is already `type=news` and dropping a keyword
+  returns unrelated headlines
+- empty query → `hot` (热点榜) — the only case the CLI runs without keywords
+- `--limit` clamped to 1-50 locally
+- binary resolution: `TENCENT_NEWS_CLI_PATH` → `tencent-news-cli` on `PATH` →
+  `~/.tencent-news-cli/bin/tencent-news-cli[.exe]`. The installer does **not** add itself
+  to `PATH`, so a PATH-only lookup reports "not found" on a perfectly working install.
+
+### Output text shape (this is what gets parsed)
+
+```
+【腾讯新闻 - 搜索「AI 芯片」】 2026-10-20 21:37
+
+1. 标题：...
+   摘要: ...
+   来源: ...
+   发布时间: 2026-10-20 10:26:12
+   链接: https://view.inews.qq.com/a/...
+
+共 2 条搜索结果，还有更多结果
+```
+
+Note the **title line carries the `N. ` ordinal** while every other field is indented —
+a regex anchored on `^\s*标题` will not match. No-results output is the single line
+`未找到与「...」相关的新闻` (exit 0); the adapter maps that to an empty result set.
+
+### Failure modes (all detected from CLI text, since exit codes are unreliable)
+
+| CLI text | Adapter error |
+|---|---|
+| binary missing at every candidate path | `tencent-news-cli not found (tried: <paths>) — install ...` |
+| `未设置 API Key` / `not set` | `API key not configured — run: tencent-news-cli apikey-set <KEY>` |
+| `API Key 无效` / `401` / `403` | `API key invalid or unauthorized` |
+
+
+## zhihu — 知乎 OpenAPI global search  (verified 2026-10-20)
+
+Zhihu's official **Global Search** endpoint. It searches the **whole public web**, not just
+zhihu.com — so it is a general web backend with a China-mainland index, not a
+"zhihu.com-only" one. Useful for Chinese-language topics and 知乎 discussion threads.
+
+Official skill package: https://developer.zhihu.com/download/global_search_skills.zip
+(SKILL.md v2.0.0 + `scripts/global-search.py`, Python stdlib only.)
+
+```
+GET https://developer.zhihu.com/api/v1/content/global_search
+Authorization: Bearer $ZHIHU_API_KEY
+X-Request-Timestamp: <unix seconds>
+```
+
+Query params (PascalCase, note the shift from the camelCase used elsewhere):
+
+| Param | Required | Notes |
+|---|---|---|
+| `Query` | yes | search terms |
+| `Count` | no | default 10, **server-clamped to 1-20** |
+| `Filter` | no | advanced filter expression, e.g. `host=="36kr.com"` |
+| `SearchDB` | no | `all` (default) / `realtime` / `static` |
+
+Response is `{"Code":0,"Message":"success","Data":{"HasMore":bool,"SearchHashId":str,"Items":[...]}}`.
+`Code` is `0` on success; a bad key returns `Code: 20001, Message: "Authorization failed"`.
+Each item carries `Title`, `Url`, `ContentText`, `ContentType`, `ContentID`, `AuthorName`,
+`AuthorBadge`, `VoteUpCount`, `CommentCount`, `EditTime` (unix seconds), `AuthorityLevel`,
+`RankingScore`.
+
+Adapter notes:
+
+- `--news` maps to `SearchDB=realtime`; otherwise the API default (`all`) is used.
+- `--limit` is clamped locally to 1-20 to match the server, so the reported count stays honest.
+- `published` is derived from `EditTime` (seconds → ISO 8601); it is **edit time, not publish time**.
+- `score` is `RankingScore` (relevance-ish, not a vote score).
+- `AuthorName` / `ContentType` are frequently empty for plain web pages — only 知乎-native
+  items tend to populate them. Do not assume they are present.
+
+If `ZHIHU_API_KEY` is absent: the adapter returns `{"error":"missing key"}`. Fallback for
+zhihu-intent queries remains bing RSS with `site:zhihu.com` — best-effort only; gate
+citations on topical relevance and report honestly when it misses (see bing section).
