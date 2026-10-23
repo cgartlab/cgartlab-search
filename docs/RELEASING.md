@@ -36,5 +36,16 @@
 ## 四、本项目的发布边界
 
 - **无 remote 时为纯本地仓库**：只做本地提交与本地 `git tag`，跳过推送与 PR（立正 `environment-and-prereqs.md`）。**不要说"连不上远程"**——没配远程就是没配。
-- **首次发布例外（仅此一次）**：`0.1.0` 的导入与发布提交直接落在 `main` 上——新仓库在首个提交前不存在分支，无法走"先建分支"的常规路径。**此后每次发布变更都应走分支 + PR**（接上 remote 后）。
+- **首次发布例外（仅此一次）**：`0.1.0` 的导入与发布提交直接落在 `main` 上——新仓库在首个提交前不存在分支，无法走"先建分支"的常规路径。**此后每次发布变更都应走分支 + PR**，除非维护者当次另行裁定。
+- **维护者 2026-10-23 裁定**：日常变更可直接提交 `main`（覆盖 `AGENTS.md` 的通用 PR 约定）。不可逆动作仍需单独确认：推送 tag、改写历史、变更仓库可见性。
 - 受限出口环境下 `brave` / `exa` / `tencent` / `zhihu` 不可用属**预期状态**，不构成发布阻塞；`references/backends.md` 已记录可达性地图与降级规则。
+
+## 五、发布自动化
+
+| 文件 | 触发 | 职责 |
+|---|---|---|
+| `.github/workflows/release.yml` | push tag `v*` | 校验 tag == `metadata.version` → 门禁 → 从 CHANGELOG 抽本版小节建 Release → `needs:` 串起发布 |
+| `.github/actions/publish/action.yml` | 被 release / publish 调用 | ClawHub 与 SkillHub 的打包与发布（逻辑唯一副本） |
+| `.github/workflows/publish.yml` | 手动 dispatch | 只用于补发失败的发布、验证 token（`dry_run=true` 只打包） |
+
+发布逻辑必须留在本仓库：public 仓库不能引用 private 仓库的 reusable workflow，跨仓库复用会让发布静默失效。`version` 由 `release.yml` 校验过的 `SKILL.md` 提供，publish 侧不再读 tag，避免两套版本号。

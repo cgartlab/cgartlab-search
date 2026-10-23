@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 # 本地门禁 = .github/workflows/ci.yml 的等价实现。
-# GitHub Actions 在本账号下因计费停摆（push 后 job 零步骤不启动），验收一律以本地结果为准。
+# 本地结果是唯一验收依据（曾因 Actions 计费停摆全红；现已转 public，但门禁仍以本地为准）。
 #
 # Usage:
 #   bash scripts/gate.sh            # 只跑静态门禁（离线可跑）
 #   bash scripts/gate.sh --smoke    # 额外对每个后端实跑一次（需要网络）
 #
-# 与 ci.yml 的对应关系：脚本语法 / JSON 合法 / SKILL.md metadata.version / 密钥不入库。
+# 与 ci.yml 的对应关系：脚本语法 / JSON 合法 / SKILL.md metadata.version / 密钥不入库 /
+# workflow 与 action 的 YAML 可解析。
 set -uo pipefail
 cd "$(dirname "$0")/.." || exit 1
 rc=0
@@ -22,16 +23,16 @@ for cand in "${PYTHON:-}" python3 python; do
 done
 if [ -n "$py" ]; then ok "python 解释器: $py"; else no "找不到可用的 python3/python（设 PYTHON=/path/to/python）"; fi
 
-echo "[1/4] 脚本语法"
+echo "[1/5] 脚本语法"
 node --check scripts/search.mjs && ok "node --check scripts/search.mjs" || no "node --check scripts/search.mjs"
 bash -n scripts/search.sh && ok "bash -n scripts/search.sh" || no "bash -n scripts/search.sh"
 
-echo "[2/4] JSON 合法"
+echo "[2/5] JSON 合法"
 for f in evals/evals.json secrets.example.json; do
   if "$py" -c 'import json,sys;json.load(sys.stdin)' < "$f" 2>/dev/null; then ok "$f"; else no "$f"; fi
 done
 
-echo "[3/4] SKILL.md metadata.version"
+echo "[3/5] SKILL.md metadata.version"
 if "$py" -c '
 import re,sys
 t=open("SKILL.md",encoding="utf-8").read()
@@ -40,7 +41,7 @@ if not m: sys.exit("SKILL.md frontmatter 缺少 metadata.version")
 print("   metadata.version =", m.group(1))
 '; then ok "metadata.version 存在"; else no "metadata.version 缺失"; fi
 
-echo "[4/4] 密钥不入库"
+echo "[4/5] 密钥不入库"
 if git ls-files --error-unmatch secrets.json >/dev/null 2>&1; then
   no "secrets.json 被 git 跟踪了"
 else
@@ -52,6 +53,37 @@ d=json.load(open("secrets.example.json",encoding="utf-8"))
 filled=[k for k,v in d.items() if v]
 sys.exit("secrets.example.json 存在非空值: "+", ".join(filled)) if filled else None
 '; then ok "secrets.example.json 全为空值"; else no "secrets.example.json 有非空值"; fi
+
+echo "[5/5] workflow 与 action 的 YAML 可解析"
+# 缩进错一个空格在 GH 上要等一轮才知道；本地解析能在 push 前抓住。
+if "$py" -c 'import yaml' 2>/dev/null; then
+  if "$py" - <<'PY'
+import glob, sys
+import yaml
+
+files = sorted(glob.glob(".github/workflows/*.yml") + glob.glob(".github/actions/*/action.yml"))
+bad = 0
+for f in files:
+    try:
+        d = yaml.safe_load(open(f, encoding="utf-8"))
+    except Exception as e:
+        print("   FAIL %s: %s: %s" % (f, type(e).__name__, e))
+        bad = 1
+        continue
+    if f.endswith("action.yml"):
+        steps = d.get("runs", {}).get("steps", [])
+        missing = [s.get("name", "<unnamed>") for s in steps if "shell" not in s]
+        if missing:
+            print("   FAIL %s: composite step 缺 shell: %s" % (f, ", ".join(missing)))
+            bad = 1
+            continue
+    print("   ok   %s" % f)
+sys.exit(bad)
+PY
+  then ok "workflow / action YAML 合法"; else no "workflow / action YAML 非法"; fi
+else
+  warn "PyYAML 缺失，跳过 YAML 校验（pip install pyyaml 可启用）"
+fi
 
 if [ "${1:-}" = "--smoke" ]; then
   echo "[smoke] 每个后端实跑一次（search.mjs）"

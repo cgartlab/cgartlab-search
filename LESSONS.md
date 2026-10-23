@@ -39,6 +39,17 @@
 ### 安装器不改 PATH
 - 失误：`tencent` 适配器只解析裸命令名，而官方安装器把二进制放在 `~/.tencent-news-cli/bin/` 且不改 `PATH`，已装好的机器仍报 "not found" → 规则：外部 CLI 依赖按 `环境变量` → `PATH` → `安装器默认目录` 三级解析
 
+## CI 与发布
+
+### public 仓库不能调用 private 仓库的 reusable workflow
+- 失误：`publish.yml` 用 `uses: cgartlab/cgartlab-skills/.github/workflows/publish-skill.yml@main` 复用发布逻辑，仓库转为 public 后 `gh workflow run publish.yml` 直接报 `workflow was not found`，registry 发布整条链路静默失效 → 规则：skill 仓库的发布逻辑内联在本仓库（`.github/actions/publish/action.yml`），不跨仓库引用 reusable workflow
+
+### GITHUB_TOKEN 创建的 Release 不触发其它 workflow
+- 失误：`release.yml` 用 `GITHUB_TOKEN` 创建 Release，指望 `publish.yml` 的 `on: release: [published]` 接力，实际永不触发（GitHub 防递归），历史上 `publish.yml` 只被 push 触发过一次 → 规则：release 与 publish 放在同一个 workflow 里用 `needs:` 串联，不靠事件接力
+
+### workflow YAML 交付前本地解析
+- 失误：workflow 的缩进/键名错误只有推到 GitHub 才知道，一轮反馈几十秒起步 → 规则：`scripts/gate.sh` 的 [5/5] 解析 `.github/workflows/*.yml` 与 `.github/actions/*/action.yml`（composite step 必须显式写 `shell`），依赖 PyYAML，缺失时降级为 warn
+
 ## 路由与降级
 
 ### 知乎未配置时的降级

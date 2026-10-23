@@ -1,19 +1,17 @@
 name: Publish to skill registries
 
-# Publishes this skill to ClawHub and SkillHub whenever a GitHub Release is
-# published. The work lives in the reusable workflow at
-# cgartlab/cgartlab-skills/.github/workflows/publish-skill.yml so a fix lands
-# once for every skill repo.
+# 手动重发入口：把默认分支当前 SKILL.md 的版本重新发布到 ClawHub / SkillHub。
 #
-# Prerequisites (already configured as repo secrets):
-#   CLAWHUB_TOKEN, SKILLHUB_API_KEY
+# 正式发布由 release.yml 在打 tag 时自动完成 —— 不需要本 workflow 参与。
+# 这里只用于三种情况：补发失败的发布、修好 token 后重试、用 dry_run=true
+# 验证 token 与打包流程。
 #
-# Manual run: "Run workflow" republishes the default branch.
-# Set dry_run=true to validate and package without contacting either registry.
+# 注意：registry 通常拒绝重复的版本号，重发前先确认目标版本没有发布成功过。
+#
+# 发布逻辑在 .github/actions/publish，内联在本仓库，不依赖外部 reusable
+# workflow（public 仓库调用 private 仓库的 reusable workflow 会直接被拒）。
 
 on:
-  release:
-    types: [published]
   workflow_dispatch:
     inputs:
       dry_run:
@@ -26,15 +24,17 @@ permissions:
 
 jobs:
   publish:
-    uses: cgartlab/cgartlab-skills/.github/workflows/publish-skill.yml@main
-    with:
-      skill-dir: "."
-      slug: cgartlab-search
-      display-name: "CGArtLab Search"
-      version: ""
-      publish-clawhub: true
-      publish-skillhub: true
-      dry-run: ${{ inputs.dry_run || false }}
-    secrets:
-      CLAWHUB_TOKEN: ${{ secrets.CLAWHUB_TOKEN }}
-      SKILLHUB_API_KEY: ${{ secrets.SKILLHUB_API_KEY }}
+    name: Publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Publish to ClawHub / SkillHub
+        uses: ./.github/actions/publish
+        with:
+          slug: cgartlab-search
+          display-name: "CGArtLab Search"
+          dry-run: ${{ inputs.dry_run }}
+          clawhub-token: ${{ secrets.CLAWHUB_TOKEN }}
+          skillhub-api-key: ${{ secrets.SKILLHUB_API_KEY }}

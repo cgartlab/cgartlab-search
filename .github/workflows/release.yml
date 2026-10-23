@@ -1,7 +1,9 @@
 name: Release
 
 # tag 驱动的自动发布：tag 版本必须与 SKILL.md 的 metadata.version 逐字一致，
-# 过完门禁后从 CHANGELOG 抽出本版小节作为 Release 说明（抽不到就失败，不编造）。
+# 过完门禁后从 CHANGELOG 抽出本版小节作为 Release 说明（抽不到就失败，不编造），
+# 随后把技能发布到 ClawHub / SkillHub。发布逻辑内联在 .github/actions/publish，
+# 不依赖外部 reusable workflow —— 发布流程由本仓库自己掌控。手动重发见 publish.yml。
 on:
   push:
     tags: ['v*']
@@ -70,3 +72,21 @@ jobs:
             --verify-tag \
             --title "cgartlab-search $GITHUB_REF_NAME" \
             --notes-file notes.md
+
+  publish:
+    name: 发布到 registry
+    needs: release
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      # version 留空 -> 从 SKILL.md 读取。tag 与 metadata.version 的一致性
+      # 已经在 release job 里校验过，这里不会出现两套版本号。
+      - name: 发布到 ClawHub / SkillHub
+        uses: ./.github/actions/publish
+        with:
+          slug: cgartlab-search
+          display-name: "CGArtLab Search"
+          clawhub-token: ${{ secrets.CLAWHUB_TOKEN }}
+          skillhub-api-key: ${{ secrets.SKILLHUB_API_KEY }}

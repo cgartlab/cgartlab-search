@@ -6,7 +6,12 @@
 
 ## [Unreleased]
 
-暂无未发布变更。（空的 `[Unreleased]` 是 `docs/RELEASING.md` 发布流程的约定：每次发版后在其上方新开一个空章节，因此这里保留标题而不是删掉。）
+### Changed
+
+- **发布流程改为仓库内自持**：`publish.yml` 原先 `uses: cgartlab/cgartlab-skills/.github/workflows/publish-skill.yml@main` 复用发布逻辑，仓库转为 public 后，public 仓库无法调用 private 仓库的 reusable workflow，`gh workflow run publish.yml` 直接报 `workflow was not found`，registry 发布整条链路静默失效。现把 ClawHub / SkillHub 的发布逻辑内联为 `.github/actions/publish/action.yml`，由 `release.yml` 创建 Release 后用 `needs:` 直接串起发布（`GITHUB_TOKEN` 创建的 Release 不会触发其它 workflow，事件接力本就不可靠），`publish.yml` 降级为纯手动重发入口。
+- **`scripts/gate.sh` 增加 [5/5] 步骤**：解析 `.github/workflows/*.yml` 与 `.github/actions/*/action.yml`（composite 的每个 step 必须显式写 `shell`），把 YAML 缩进/键名错误挡在 push 之前；PyYAML 缺失时降级为 warn。
+
+（空的 `[Unreleased]` 是 `docs/RELEASING.md` 发布流程的约定：每次发版后在其上方新开一个空章节，因此这里保留标题而不是删掉。）
 
 ## [0.1.1] - 2026-10-23
 
