@@ -44,6 +44,9 @@
 ### public 仓库不能调用 private 仓库的 reusable workflow
 - 失误：`publish.yml` 用 `uses: cgartlab/cgartlab-skills/.github/workflows/publish-skill.yml@main` 复用发布逻辑，仓库转为 public 后 `gh workflow run publish.yml` 直接报 `workflow was not found`，registry 发布整条链路静默失效 → 规则：skill 仓库的发布逻辑内联在本仓库（`.github/actions/publish/action.yml`），不跨仓库引用 reusable workflow
 
+### SkillHub 拒绝无扩展名文件
+- 失误：真发布时 SkillHub 返回 `400 不允许的文件类型: LICENSE`（ClawHub 侧成功），而 `dry_run=true` 不暴露该问题，看起来一切都通过 → 规则：SkillHub 打包用 `tar` 排除 `./.*` 与 `node_modules` 并清掉残留的无扩展名文件；改动发布逻辑后必须跑一次真发布，dry-run 不校验文件类型
+
 ### GITHUB_TOKEN 创建的 Release 不触发其它 workflow
 - 失误：`release.yml` 用 `GITHUB_TOKEN` 创建 Release，指望 `publish.yml` 的 `on: release: [published]` 接力，实际永不触发（GitHub 防递归），历史上 `publish.yml` 只被 push 触发过一次 → 规则：release 与 publish 放在同一个 workflow 里用 `needs:` 串联，不靠事件接力
 
