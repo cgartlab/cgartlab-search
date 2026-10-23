@@ -18,6 +18,14 @@ on:
         description: "Validate and package only - do not publish"
         type: boolean
         default: false
+      publish_clawhub:
+        description: "Publish to ClawHub（半途失败时用来只补发另一半）"
+        type: boolean
+        default: true
+      publish_skillhub:
+        description: "Publish to SkillHub（半途失败时用来只补发另一半）"
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -36,5 +44,7 @@ jobs:
           slug: cgartlab-search
           display-name: "CGArtLab Search"
           dry-run: ${{ inputs.dry_run }}
+          publish-clawhub: ${{ inputs.publish_clawhub }}
+          publish-skillhub: ${{ inputs.publish_skillhub }}
           clawhub-token: ${{ secrets.CLAWHUB_TOKEN }}
           skillhub-api-key: ${{ secrets.SKILLHUB_API_KEY }}

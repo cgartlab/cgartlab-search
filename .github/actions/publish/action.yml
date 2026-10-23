@@ -156,7 +156,19 @@ runs:
         STAGE="$RUNNER_TEMP/skillhub-stage"
         rm -rf "$STAGE"
         mkdir -p "$STAGE"
-        cp -a "${SKILL_DIR%/}/." "$STAGE/"
+
+        # SkillHub 只接受已知文件类型，会以 400 拒绝无扩展名文件（如 LICENSE），
+        # 也不该把 .git / .github 打进发布包。用 tar 精确排除后，再把残留的
+        # 无扩展名文件清掉并记录下来。
+        tar -C "${SKILL_DIR%/}" \
+          --exclude='./.*' \
+          --exclude='./node_modules' \
+          -cf - . | tar -C "$STAGE" -xf -
+
+        removed="$(find "$STAGE" -type f ! -name '*.*' -print -delete)"
+        if [ -n "$removed" ]; then
+          echo "::warning::SkillHub 不接受无扩展名文件，已从发布包剔除: $removed"
+        fi
 
         python3 - "$STAGE/SKILL.md" "$SLUG" "$DISPLAY_NAME" "$VERSION" <<'PY'
         import sys
