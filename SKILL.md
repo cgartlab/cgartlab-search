@@ -4,10 +4,11 @@ description: 'Unified multi-backend internet search. Backends: Brave/Exa (web & 
 license: CC-BY-NC-SA-4.0
 compatibility: HTTP call capability — a shell with curl, or the harness native WebFetch/web_fetch tool (GET-only; all key-less backends work through it).
 metadata:
-  kind: skill
   version: "0.1.1"
+  kind: skill
   date: "2026-10-23"
-  reference: "https://github.com/cgartlab/cgartlab-search"---
+  reference: "https://github.com/cgartlab/cgartlab-search"
+---
 
 # cgartlab-search — unified search
 
