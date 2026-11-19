@@ -6,6 +6,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- **`scripts/search.mjs` 支持环境代理**：读取 `HTTPS_PROXY` / `HTTP_PROXY`，`undici` 可导入时安装 `ProxyAgent`；不可导入时不再静默直连，而是提示用 `node --use-env-proxy`（或 `NODE_USE_ENV_PROXY=1`）让内置 `fetch` 读取同一批变量。之前脚本在任何代理环境下都只能直连，受限出口上表现为后端不可达。
+
 ### Changed
 
 - **发布流程改为仓库内自持**：`publish.yml` 原先 `uses: cgartlab/cgartlab-skills/.github/workflows/publish-skill.yml@main` 复用发布逻辑，仓库转为 public 后，public 仓库无法调用 private 仓库的 reusable workflow，`gh workflow run publish.yml` 直接报 `workflow was not found`，registry 发布整条链路静默失效。现把 ClawHub / SkillHub 的发布逻辑内联为 `.github/actions/publish/action.yml`，由 `release.yml` 创建 Release 后用 `needs:` 直接串起发布（`GITHUB_TOKEN` 创建的 Release 不会触发其它 workflow，事件接力本就不可靠），`publish.yml` 降级为纯手动重发入口。
