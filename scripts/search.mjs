@@ -17,6 +17,23 @@ import { homedir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
+// Proxy support: set HTTPS_PROXY=http://127.0.0.1:7897 (or HTTP_PROXY) to route fetch() through a proxy.
+// Two ways to honour it, in order: (1) undici's ProxyAgent when the package is importable;
+// (2) otherwise tell the user to run `node --use-env-proxy`, which lets Node's built-in
+// fetch read the same variables. Silence here would look like "the proxy works" while
+// requests still go direct, so the fallback is printed to stderr.
+const PROXY = process.env.HTTPS_PROXY || process.env.https_proxy || process.env.HTTP_PROXY || process.env.http_proxy;
+if (PROXY) {
+  try {
+    const { ProxyAgent, setGlobalDispatcher } = await import('undici');
+    setGlobalDispatcher(new ProxyAgent(PROXY));
+  } catch {
+    if (!process.env.NODE_USE_ENV_PROXY) {
+      process.stderr.write('warn: proxy env set but `undici` is not installed; run with `node --use-env-proxy` (or set NODE_USE_ENV_PROXY=1) so fetch uses it\n');
+    }
+  }
+}
+
 const here = dirname(fileURLToPath(import.meta.url));
 const argv = process.argv.slice(2);
 const flag = (n) => { const i = argv.indexOf(n); return i >= 0 ? (argv.splice(i, 2)[1] ?? null) : null; };

@@ -27,6 +27,11 @@ Codex, opencode, ...), including restricted-egress environments via web_fetch.
 - **DSH / restricted egress**: the harness's `web_fetch` tool — all key-less backends.
   See `references/backends.md` for the verified host-reachability map.
 - **`scripts/search.mjs`**: Node 18+ (zero dependencies, uses global `fetch`).
+- **`scripts/search.mjs` behind a proxy**: set `HTTPS_PROXY` (or `HTTP_PROXY`). With the
+  `undici` package importable the script installs a `ProxyAgent`; without it, run
+  `node --use-env-proxy scripts/search.mjs …` (or set `NODE_USE_ENV_PROXY=1`) so Node's
+  built-in `fetch` reads the same variables. The script prints a warning when the env var
+  is set but neither mechanism is in effect.
 - **`scripts/search.sh`**: a working `python3` **or** `python` — the script probes both
   (plus `$PYTHON`) and verifies real output, because on Windows `python3` can be a
   Microsoft Store alias stub that exits 0 while printing nothing.
